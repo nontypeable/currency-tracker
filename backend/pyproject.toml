@@ -10,6 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "black>=25.1.0",
     "mypy>=1.17.1",
 ]
 
@@ -33,3 +34,8 @@ warn_unreachable = true
 warn_no_return = true
 strict_equality = true
 show_error_codes = true
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+skip-string-normalization = false
