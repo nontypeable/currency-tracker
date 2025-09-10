@@ -34,3 +34,8 @@ warn_unreachable = true
 warn_no_return = true
 strict_equality = true
 show_error_codes = true
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+skip-string-normalization = false
