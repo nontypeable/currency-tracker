@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+wheels/
+.mypy_cache/
+.pytest_cache/
+.venv/
+
+# Node.js
+node_modules/
+.npm/
+.eslintcache
+.npm
+*.tgz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Build outputs
+build/
+dist/
