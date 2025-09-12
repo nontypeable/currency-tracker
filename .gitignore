@@ -34,3 +34,6 @@ temp/
 # Build outputs
 build/
 dist/
+
+# Environment
+.env
