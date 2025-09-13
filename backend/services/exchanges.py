@@ -3,11 +3,28 @@ from xml.etree import ElementTree as ET
 from typing import Optional, Dict
 from datetime import date
 from models.currency import ExchangeRates
+import redis
+from config import get_config
+from config import Config
+import json
 
 
 class ExchangesService:
-    def __init__(self) -> None:
+    def __init__(
+        self, config: Config, redis_client: Optional[redis.Redis] = None
+    ) -> None:
         self._base_url = "http://www.cbr.ru/scripts/XML_daily.asp"
+        self.config = config
+        self.redis_client = redis_client or self._create_redis_client()
+
+    def _create_redis_client(self) -> redis.Redis:
+        return redis.Redis(
+            host=self.config.redis_host,
+            port=self.config.redis_port,
+            db=self.config.redis_db,
+            decode_responses=True,
+            socket_timeout=5,
+        )
 
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
@@ -15,18 +32,68 @@ class ExchangesService:
         """
         Get exchange rate for a specific currency to RUB.
         """
+        cache_key = f"rate:{char_code.upper()}:{date.isoformat() if date else 'latest'}"
+
+        if self.redis_client:
+            try:
+                cached_data = self.redis_client.get(cache_key)
+                if cached_data and isinstance(cached_data, str):
+                    return float(cached_data)
+            except redis.RedisError:
+                pass
+
         async with httpx.AsyncClient() as client:
             response = await self._make_request(client, date)
-            return self._parse_currency_rate(response.content, char_code)
+            currency_rate = self._parse_currency_rate(response.content, char_code)
+
+            if self.redis_client:
+                try:
+                    self.redis_client.setex(
+                        cache_key, 3600, str(currency_rate)  # ttl 1 hour
+                    )
+                except redis.RedisError:
+                    pass
+
+            return currency_rate
 
     async def get_all_currency_exchange_rates(
         self, base_currency: str, date: Optional[date] = None
     ) -> ExchangeRates:
+        cache_key = (
+            f"rates_all:{base_currency}:{date.isoformat() if date else 'latest'}"
+        )
+
+        if self.redis_client:
+            try:
+                cached_data = self.redis_client.get(cache_key)
+                if cached_data and isinstance(cached_data, str):
+                    data = json.loads(cached_data)
+                    return ExchangeRates(**data)
+            except (redis.RedisError, json.JSONDecodeError):
+                pass
+
         params = self._build_request_params(date)
         async with httpx.AsyncClient() as client:
             response = await client.get(self._base_url, params=params)
-            response.raise_for_status()
-            return self._parse_exchange_rates(response.content, base_currency)
+            exchange_rates = self._parse_exchange_rates(response.content, base_currency)
+
+            if self.redis_client:
+                try:
+                    serialized_data = json.dumps(
+                        {
+                            "base": exchange_rates.base,
+                            "rates": exchange_rates.rates,
+                            "last_updated": exchange_rates.last_updated,
+                        }
+                    )
+
+                    self.redis_client.setex(
+                        cache_key, 3600, serialized_data  # ttl 1 hour
+                    )
+                except redis.RedisError:
+                    pass
+
+            return exchange_rates
 
     def _build_request_params(self, date: Optional[date]) -> Dict[str, str]:
         return {"date_req": date.strftime("%d.%m.%Y")} if date else {}
