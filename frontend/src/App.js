@@ -43,7 +43,75 @@ function App() {
         return () => clearInterval(interval);
     }, [fetchRates]);
 
-    return;
+    return (
+        <div className="App">
+            <div className="section">
+                <div className="header">
+                    <h1>💱 Currency Tracker</h1>
+                    <p>Real-time exchange rates</p>
+                </div>
+
+                <div className="currency-selector">
+                    <label htmlFor="base-currency">Base Currency:</label>
+                    <select
+                        id="base-currency"
+                        value={baseCurrency}
+                        onChange={(e) => setBaseCurrency(e.target.value)}
+                        disabled={loading}
+                    >
+                        <option value="USD">USD 🇺🇸</option>
+                        <option value="EUR">EUR 🇪🇺</option>
+                        <option value="GBP">GBP 🇬🇧</option>
+                        <option value="JPY">JPY 🇯🇵</option>
+                        <option value="RUB">RUB 🇷🇺</option>
+                        <option value="CNY">CNY 🇨🇳</option>
+                    </select>
+                </div>
+
+                {error && (
+                    <div className="error">
+                        <p>{error}</p>
+                        <button
+                            onClick={fetchRates}
+                            style={{ marginTop: "10px" }}
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
+
+                {loading ? (
+                    <div className="loading">
+                        <div className="spinner"></div>
+                        <p>Loading exchange rates...</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="rates-grid">
+                            {Object.entries(rates)
+                                .sort(([a], [b]) => a.localeCompare(b))
+                                .map(([currency, rate]) => (
+                                    <div key={currency} className="rate-item">
+                                        <span className="currency-code">
+                                            {currency}
+                                        </span>
+                                        <span className="currency-rate">
+                                            {formatRate(rate)}
+                                        </span>
+                                    </div>
+                                ))}
+                        </div>
+
+                        {lastUpdated && (
+                            <div className="last-updated">
+                                Last updated: {lastUpdated.toLocaleTimeString()}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default App;
