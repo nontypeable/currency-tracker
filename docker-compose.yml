@@ -36,6 +36,22 @@ services:
       retries: 3
       start_period: 40s
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: currency-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "3000:80"
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
