@@ -27,6 +27,16 @@ function App() {
         }
     }, [baseCurrency]);
 
+    const formatRate = (rate) => {
+        if (rate >= 1000) {
+            return rate.toFixed(2);
+        } else if (rate >= 1) {
+            return rate.toFixed(4);
+        } else {
+            return rate.toFixed(6);
+        }
+    };
+
     useEffect(() => {
         fetchRates();
         const interval = setInterval(fetchRates, 5 * 60 * 1000); // update data every 5 minutes
