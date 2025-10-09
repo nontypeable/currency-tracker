@@ -82,3 +82,24 @@ class RatesRepository:
             if len(rows) >= days:
                 return [HistoricalRate(date=row[0], rate=row[1]) for row in rows]
             return None
+
+    def get_latest_rate(
+        self, currency: str, base_currency: str
+    ) -> Optional[HistoricalRate]:
+        """
+        Gets the latest exchange rate for a given currency pair.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT date, rate FROM historical_rates
+                WHERE currency = ? AND base_currency = ?
+                ORDER BY date DESC
+                LIMIT 1
+                """,
+                (currency.upper(), base_currency.upper()),
+            )
+            row = cursor.fetchone()
+            if row:
+                return HistoricalRate(date=row[0], rate=row[1])
+            return None
