@@ -45,6 +45,22 @@ class RatesRepository:
                 )
             conn.commit()
 
+    def save_single_rate(
+        self, currency: str, base_currency: str, rate: HistoricalRate
+    ) -> None:
+        """
+        Saves a single exchange rate into the database.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO historical_rates (currency, base_currency, date, rate)
+                VALUES (?, ?, ?, ?)
+                """,
+                (currency.upper(), base_currency.upper(), rate.date, rate.rate),
+            )
+            conn.commit()
+
     def get_rates(
         self, currency: str, base_currency: str, days: int
     ) -> Optional[List[HistoricalRate]]:
