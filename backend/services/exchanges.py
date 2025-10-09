@@ -106,7 +106,23 @@ class ExchangesService:
                     pass
             return final_rates
 
-        return [] 
+        return []
+    
+    async def update_daily_rates(self) -> None:
+        """
+        Update database with today's rates for all available currencies.
+        """
+        try:
+            exchange_rates = await self.get_all_currency_exchange_rates("RUB")
+            today = date.today()
+
+            for currency, rate in exchange_rates.rates.items():
+                if currency != "RUB":
+                    historical_rate = HistoricalRate(date=today.isoformat(), rate=rate)
+                    self.repository.save_single_rate(currency, "RUB", historical_rate)
+
+        except Exception as e:
+            pass
 
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
