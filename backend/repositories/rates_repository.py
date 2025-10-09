@@ -11,12 +11,12 @@ class RatesRepository:
 
     def _init_db(self) -> None:
         """
-        Initialize the database and create the `rates` table if it doesn't exist.
+        Initialize the database and create the `historical_rates` table if it doesn't exist.
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS rates (
+                CREATE TABLE IF NOT EXISTS historical_rates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     currency TEXT NOT NULL,
                     base_currency TEXT NOT NULL,
