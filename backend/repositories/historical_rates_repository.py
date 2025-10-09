@@ -1,4 +1,6 @@
 import sqlite3
+from typing import List
+from models.currency import HistoricalRate
 
 
 class RatesRepository:
@@ -23,4 +25,21 @@ class RatesRepository:
                 )
                 """
             )
+            conn.commit()
+
+    def save_rates(
+        self, currency: str, base_currency: str, rates: List[HistoricalRate]
+    ) -> None:
+        """
+        Saves a list of exchange rates for a given currency pair into the database.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            for rate in rates:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO historical_rates (currency, base_currency, date, rate)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (currency.upper(), base_currency.upper(), rate.date, rate.rate),
+                )
             conn.commit()
