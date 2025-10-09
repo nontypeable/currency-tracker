@@ -1,5 +1,6 @@
 import sqlite3
-from typing import List
+from typing import List, Optional
+from datetime import date, timedelta
 from models.currency import HistoricalRate
 
 
@@ -43,3 +44,25 @@ class RatesRepository:
                     (currency.upper(), base_currency.upper(), rate.date, rate.rate),
                 )
             conn.commit()
+
+    def get_rates(
+        self, currency: str, base_currency: str, days: int
+    ) -> Optional[List[HistoricalRate]]:
+        """
+        Gets historical exchange rates for a given currency pair from the database.
+        """
+        today = date.today()
+        start_date = today - timedelta(days=days - 1)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT date, rate FROM historical_rates
+                WHERE currency = ? AND base_currency = ? AND date >= ?
+                ORDER BY date ASC
+                """,
+                (currency.upper(), base_currency.upper(), start_date.isoformat()),
+            )
+            rows = cursor.fetchall()
+            if len(rows) >= days:
+                return [HistoricalRate(date=row[0], rate=row[1]) for row in rows]
+            return None
