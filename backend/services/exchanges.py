@@ -155,6 +155,47 @@ class ExchangesService:
                 "KRW",
                 "RUB",
             ]
+    
+    async def preload_historical_data(self, days: int = 180) -> None:
+        """
+        Preload historical data for all available currencies.
+        """
+        try:
+            all_currencies = await self.get_all_available_currencies()
+
+            base_currencies = ["RUB", "USD", "EUR"]
+
+            total_pairs = len(all_currencies) * len(base_currencies)
+            current_pair = 0
+
+            for base_currency in base_currencies:
+                for currency in all_currencies:
+                    if currency == base_currency:
+                        continue
+
+                    current_pair += 1
+                    try:
+                        missing_dates = self.repository.get_missing_dates(
+                            currency, base_currency, days
+                        )
+
+                        if not missing_dates:
+                            continue
+
+                        chunk_size = 10
+                        for i in range(0, len(missing_dates), chunk_size):
+                            chunk = missing_dates[i : i + chunk_size]
+                            await self._load_historical_chunk(
+                                currency, base_currency, chunk
+                            )
+
+                            await asyncio.sleep(0.5)
+
+                    except Exception as e:
+                        continue
+
+        except Exception as e:
+            pass
         
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
