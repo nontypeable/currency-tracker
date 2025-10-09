@@ -124,6 +124,38 @@ class ExchangesService:
         except Exception as e:
             pass
 
+    async def get_all_available_currencies(self) -> List[str]:
+        """
+        Get list of all available currency codes from CBR.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(self._base_url)
+                response.raise_for_status()
+                root = ET.fromstring(response.content)
+
+                currencies = []
+                for valute in root.findall("Valute"):
+                    char_code = valute.findtext("CharCode")
+                    if char_code:
+                        currencies.append(char_code)
+
+                currencies.append("RUB")
+                return sorted(list(set(currencies)))
+        except Exception as e:
+            return [
+                "USD",
+                "EUR",
+                "GBP",
+                "JPY",
+                "CNY",
+                "CHF",
+                "CAD",
+                "AUD",
+                "KRW",
+                "RUB",
+            ]
+        
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
     ) -> float:
