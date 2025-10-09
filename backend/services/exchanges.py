@@ -4,9 +4,11 @@ from typing import Optional, Dict
 from datetime import date
 from models.currency import ExchangeRates
 import redis
-from config import get_config
 from config import Config
 import json
+from typing import Dict
+from repositories.rates_repository import RatesRepository
+from loguru import logger
 
 
 class ExchangesService:
@@ -16,6 +18,7 @@ class ExchangesService:
         self._base_url = "http://www.cbr.ru/scripts/XML_daily.asp"
         self.config = config
         self.redis_client = redis_client or self._create_redis_client()
+        self.repository = RatesRepository()
 
     def _create_redis_client(self) -> redis.Redis:
         return redis.Redis(

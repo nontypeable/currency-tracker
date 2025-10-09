@@ -1,1 +1,1 @@
-from .currency import ExchangeRates
+from .currency import ExchangeRates, HistoricalRate

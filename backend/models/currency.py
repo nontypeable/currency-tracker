@@ -7,3 +7,9 @@ class ExchangeRates:
     base: str
     rates: Dict[str, float]
     last_updated: str
+
+
+@dataclass
+class HistoricalRate:
+    date: str
+    rate: float
