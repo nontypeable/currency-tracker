@@ -196,7 +196,41 @@ class ExchangesService:
 
         except Exception as e:
             pass
-        
+    async def _load_historical_chunk(
+        self, currency: str, base_currency: str, dates: List[date]
+    ) -> None:
+        """
+        Load historical data for a chunk of dates.
+        """
+        rates_to_save = []
+
+        for target_date in dates:
+            try:
+                if base_currency == "RUB":
+                    rate = await self.get_currency_exchange_rate(currency, target_date)
+                    historical_rate = HistoricalRate(
+                        date=target_date.isoformat(), rate=rate
+                    )
+                else:
+                    currency_to_rub = await self.get_currency_exchange_rate(
+                        currency, target_date
+                    )
+                    base_to_rub = await self.get_currency_exchange_rate(
+                        base_currency, target_date
+                    )
+                    cross_rate = currency_to_rub / base_to_rub
+                    historical_rate = HistoricalRate(
+                        date=target_date.isoformat(), rate=cross_rate
+                    )
+
+                rates_to_save.append(historical_rate)
+
+            except Exception as e:
+                continue
+
+        if rates_to_save:
+            self.repository.save_rates(currency, base_currency, rates_to_save)
+   
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
     ) -> float:
