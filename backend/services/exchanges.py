@@ -8,7 +8,8 @@ from config import Config
 import json
 from typing import Dict
 from repositories.rates_repository import RatesRepository
-from loguru import logger
+from typing import List
+from models import HistoricalRate
 
 
 class ExchangesService:
@@ -28,6 +29,84 @@ class ExchangesService:
             decode_responses=True,
             socket_timeout=5,
         )
+    
+    async def get_historical_rates(
+        self, currency: str, base_currency: str, days: int = 30
+    ) -> List[HistoricalRate]:
+        """
+        Get historical exchange rates with database caching.
+        """
+        cache_key = f"historical:{currency}:{base_currency}:{days}"
+
+        if self.redis_client:
+            try:
+                cached_data = self.redis_client.get(cache_key)
+                if cached_data:
+                    return [HistoricalRate(**item) for item in json.loads(cached_data)]
+            except redis.RedisError:
+                pass
+
+        db_rates = self.repository.get_rates(currency, base_currency, days)
+        if db_rates:
+            if self.redis_client:
+                try:
+                    self.redis_client.setex(
+                        cache_key,
+                        3600,
+                        json.dumps(
+                            [{"date": r.date, "rate": r.rate} for r in db_rates]
+                        ),
+                    )
+                except redis.RedisError:
+                    pass
+            return db_rates 
+
+        missing_dates = self.repository.get_missing_dates(currency, base_currency, days)
+        rates_to_save = []
+
+        for missing_date in missing_dates:
+            try:
+                if base_currency == "RUB":
+                    rate = await self.get_currency_exchange_rate(currency, missing_date)
+                    historical_rate = HistoricalRate(
+                        date=missing_date.isoformat(), rate=rate
+                    )
+                else:
+                    currency_to_rub = await self.get_currency_exchange_rate(
+                        currency, missing_date
+                    )
+                    base_to_rub = await self.get_currency_exchange_rate(
+                        base_currency, missing_date
+                    )
+                    cross_rate = currency_to_rub / base_to_rub
+                    historical_rate = HistoricalRate(
+                        date=missing_date.isoformat(), rate=cross_rate
+                    )
+
+                rates_to_save.append(historical_rate)
+
+            except Exception as e:
+                continue
+
+        if rates_to_save:
+            self.repository.save_rates(currency, base_currency, rates_to_save)
+
+        final_rates = self.repository.get_rates(currency, base_currency, days)
+        if final_rates:
+            if self.redis_client:
+                try:
+                    self.redis_client.setex(
+                        cache_key,
+                        3600,
+                        json.dumps(
+                            [{"date": r.date, "rate": r.rate} for r in final_rates]
+                        ),
+                    )
+                except redis.RedisError:
+                    pass
+            return final_rates
+
+        return [] 
 
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
