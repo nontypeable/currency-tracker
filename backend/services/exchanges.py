@@ -8,7 +8,8 @@ from config import Config
 import json
 from typing import Dict
 from repositories.rates_repository import RatesRepository
-from loguru import logger
+from typing import List
+from models import HistoricalRate
 
 
 class ExchangesService:
@@ -28,7 +29,208 @@ class ExchangesService:
             decode_responses=True,
             socket_timeout=5,
         )
+    
+    async def get_historical_rates(
+        self, currency: str, base_currency: str, days: int = 30
+    ) -> List[HistoricalRate]:
+        """
+        Get historical exchange rates with database caching.
+        """
+        cache_key = f"historical:{currency}:{base_currency}:{days}"
 
+        if self.redis_client:
+            try:
+                cached_data = self.redis_client.get(cache_key)
+                if cached_data:
+                    return [HistoricalRate(**item) for item in json.loads(cached_data)]
+            except redis.RedisError:
+                pass
+
+        db_rates = self.repository.get_rates(currency, base_currency, days)
+        if db_rates:
+            if self.redis_client:
+                try:
+                    self.redis_client.setex(
+                        cache_key,
+                        3600,
+                        json.dumps(
+                            [{"date": r.date, "rate": r.rate} for r in db_rates]
+                        ),
+                    )
+                except redis.RedisError:
+                    pass
+            return db_rates 
+
+        missing_dates = self.repository.get_missing_dates(currency, base_currency, days)
+        rates_to_save = []
+
+        for missing_date in missing_dates:
+            try:
+                if base_currency == "RUB":
+                    rate = await self.get_currency_exchange_rate(currency, missing_date)
+                    historical_rate = HistoricalRate(
+                        date=missing_date.isoformat(), rate=rate
+                    )
+                else:
+                    currency_to_rub = await self.get_currency_exchange_rate(
+                        currency, missing_date
+                    )
+                    base_to_rub = await self.get_currency_exchange_rate(
+                        base_currency, missing_date
+                    )
+                    cross_rate = currency_to_rub / base_to_rub
+                    historical_rate = HistoricalRate(
+                        date=missing_date.isoformat(), rate=cross_rate
+                    )
+
+                rates_to_save.append(historical_rate)
+
+            except Exception as e:
+                continue
+
+        if rates_to_save:
+            self.repository.save_rates(currency, base_currency, rates_to_save)
+
+        final_rates = self.repository.get_rates(currency, base_currency, days)
+        if final_rates:
+            if self.redis_client:
+                try:
+                    self.redis_client.setex(
+                        cache_key,
+                        3600,
+                        json.dumps(
+                            [{"date": r.date, "rate": r.rate} for r in final_rates]
+                        ),
+                    )
+                except redis.RedisError:
+                    pass
+            return final_rates
+
+        return []
+    
+    async def update_daily_rates(self) -> None:
+        """
+        Update database with today's rates for all available currencies.
+        """
+        try:
+            exchange_rates = await self.get_all_currency_exchange_rates("RUB")
+            today = date.today()
+
+            for currency, rate in exchange_rates.rates.items():
+                if currency != "RUB":
+                    historical_rate = HistoricalRate(date=today.isoformat(), rate=rate)
+                    self.repository.save_single_rate(currency, "RUB", historical_rate)
+
+        except Exception as e:
+            pass
+
+    async def get_all_available_currencies(self) -> List[str]:
+        """
+        Get list of all available currency codes from CBR.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(self._base_url)
+                response.raise_for_status()
+                root = ET.fromstring(response.content)
+
+                currencies = []
+                for valute in root.findall("Valute"):
+                    char_code = valute.findtext("CharCode")
+                    if char_code:
+                        currencies.append(char_code)
+
+                currencies.append("RUB")
+                return sorted(list(set(currencies)))
+        except Exception as e:
+            return [
+                "USD",
+                "EUR",
+                "GBP",
+                "JPY",
+                "CNY",
+                "CHF",
+                "CAD",
+                "AUD",
+                "KRW",
+                "RUB",
+            ]
+    
+    async def preload_historical_data(self, days: int = 180) -> None:
+        """
+        Preload historical data for all available currencies.
+        """
+        try:
+            all_currencies = await self.get_all_available_currencies()
+
+            base_currencies = ["RUB", "USD", "EUR"]
+
+            total_pairs = len(all_currencies) * len(base_currencies)
+            current_pair = 0
+
+            for base_currency in base_currencies:
+                for currency in all_currencies:
+                    if currency == base_currency:
+                        continue
+
+                    current_pair += 1
+                    try:
+                        missing_dates = self.repository.get_missing_dates(
+                            currency, base_currency, days
+                        )
+
+                        if not missing_dates:
+                            continue
+
+                        chunk_size = 10
+                        for i in range(0, len(missing_dates), chunk_size):
+                            chunk = missing_dates[i : i + chunk_size]
+                            await self._load_historical_chunk(
+                                currency, base_currency, chunk
+                            )
+
+                            await asyncio.sleep(0.5)
+
+                    except Exception as e:
+                        continue
+
+        except Exception as e:
+            pass
+    async def _load_historical_chunk(
+        self, currency: str, base_currency: str, dates: List[date]
+    ) -> None:
+        """
+        Load historical data for a chunk of dates.
+        """
+        rates_to_save = []
+
+        for target_date in dates:
+            try:
+                if base_currency == "RUB":
+                    rate = await self.get_currency_exchange_rate(currency, target_date)
+                    historical_rate = HistoricalRate(
+                        date=target_date.isoformat(), rate=rate
+                    )
+                else:
+                    currency_to_rub = await self.get_currency_exchange_rate(
+                        currency, target_date
+                    )
+                    base_to_rub = await self.get_currency_exchange_rate(
+                        base_currency, target_date
+                    )
+                    cross_rate = currency_to_rub / base_to_rub
+                    historical_rate = HistoricalRate(
+                        date=target_date.isoformat(), rate=cross_rate
+                    )
+
+                rates_to_save.append(historical_rate)
+
+            except Exception as e:
+                continue
+
+        if rates_to_save:
+            self.repository.save_rates(currency, base_currency, rates_to_save)
+   
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
     ) -> float:
