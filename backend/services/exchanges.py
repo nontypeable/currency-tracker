@@ -10,6 +10,7 @@ from typing import Dict
 from repositories.rates_repository import RatesRepository
 from typing import List
 from models import HistoricalRate
+import asyncio
 
 
 class ExchangesService:
