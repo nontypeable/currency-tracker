@@ -45,6 +45,25 @@ class RatesRepository:
                 )
             conn.commit()
 
+    def get_rate_by_date(
+        self, currency: str, base_currency: str, target_date: date
+    ) -> Optional[HistoricalRate]:
+        """
+        Gets the exchange rate for a given currency pair on a specific date.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                    SELECT date, rate FROM historical_rates
+                    WHERE currency = ? AND base_currency = ? AND date = ?
+                    """,
+                (currency.upper(), base_currency.upper(), target_date.isoformat()),
+            )
+            row = cursor.fetchone()
+            if row:
+                return HistoricalRate(date=row[0], rate=row[1])
+            return None
+
     def save_single_rate(
         self, currency: str, base_currency: str, rate: HistoricalRate
     ) -> None:
