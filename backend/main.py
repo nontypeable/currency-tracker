@@ -10,8 +10,7 @@ import asyncio
 import threading
 
 
-# Initialize database on startup
-def init_db():
+def init_db() -> None:
     """
     Initialize database tables.
     """
@@ -19,7 +18,7 @@ def init_db():
     logger.info("Database initialized successfully")
 
 
-async def preload_data():
+async def preload_data() -> None:
     """
     Preload historical data in background.
     """
@@ -37,12 +36,12 @@ async def preload_data():
         logger.error(f"Background data preload failed: {e}")
 
 
-def start_background_preload():
+def start_background_preload() -> None:
     """
     Start background preload task.
     """
 
-    def run_preload():
+    def run_preload() -> None:
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
