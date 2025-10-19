@@ -47,13 +47,6 @@ async def get_historical_rates(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-exchanges_router = Router(
-    path="/api/currency",
-    route_handlers=[get_rates, get_historical_rates],
-    dependencies={"exchanges_service": Provide(get_exchanges_service)},
-)
-
-
 @post("/update-rates")
 async def update_rates(exchanges_service: ExchangesService) -> Dict[str, str]:
     """Update database with latest rates"""
@@ -100,3 +93,10 @@ async def get_database_stats(exchanges_service: ExchangesService) -> Dict:
         return {"stats": stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+exchanges_router = Router(
+    path="/api/currency",
+    route_handlers=[get_rates, get_historical_rates],
+    dependencies={"exchanges_service": Provide(get_exchanges_service)},
+)
