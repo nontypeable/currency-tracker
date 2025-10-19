@@ -52,3 +52,13 @@ exchanges_router = Router(
     route_handlers=[get_rates, get_historical_rates],
     dependencies={"exchanges_service": Provide(get_exchanges_service)},
 )
+
+
+@post("/update-rates")
+async def update_rates(exchanges_service: ExchangesService) -> Dict[str, str]:
+    """Update database with latest rates"""
+    try:
+        await exchanges_service.update_daily_rates()
+        return {"status": "success", "message": "Rates updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
