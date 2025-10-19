@@ -91,3 +91,12 @@ async def get_available_currencies(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@get("/stats")
+async def get_database_stats(exchanges_service: ExchangesService) -> Dict:
+    """Get database statistics"""
+    try:
+        stats = exchanges_service.repository.get_data_statistics()
+        return {"stats": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
