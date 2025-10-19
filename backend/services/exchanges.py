@@ -29,7 +29,7 @@ class ExchangesService:
             decode_responses=True,
             socket_timeout=5,
         )
-    
+
     async def get_historical_rates(
         self, currency: str, base_currency: str, days: int = 30
     ) -> List[HistoricalRate]:
@@ -59,7 +59,7 @@ class ExchangesService:
                     )
                 except redis.RedisError:
                     pass
-            return db_rates 
+            return db_rates
 
         missing_dates = self.repository.get_missing_dates(currency, base_currency, days)
         rates_to_save = []
@@ -107,7 +107,7 @@ class ExchangesService:
             return final_rates
 
         return []
-    
+
     async def update_daily_rates(self) -> None:
         """
         Update database with today's rates for all available currencies.
@@ -155,7 +155,7 @@ class ExchangesService:
                 "KRW",
                 "RUB",
             ]
-    
+
     async def preload_historical_data(self, days: int = 180) -> None:
         """
         Preload historical data for all available currencies.
@@ -196,6 +196,7 @@ class ExchangesService:
 
         except Exception as e:
             pass
+
     async def _load_historical_chunk(
         self, currency: str, base_currency: str, dates: List[date]
     ) -> None:
@@ -230,7 +231,7 @@ class ExchangesService:
 
         if rates_to_save:
             self.repository.save_rates(currency, base_currency, rates_to_save)
-   
+
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
     ) -> float:

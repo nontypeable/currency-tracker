@@ -1,0 +1,7 @@
+main.py
+pyproject.toml
+currency_tracker.egg-info/PKG-INFO
+currency_tracker.egg-info/SOURCES.txt
+currency_tracker.egg-info/dependency_links.txt
+currency_tracker.egg-info/requires.txt
+currency_tracker.egg-info/top_level.txt
