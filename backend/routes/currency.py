@@ -1,11 +1,11 @@
-from litestar import Router, get
+from litestar import Router, get, post
 from litestar.exceptions import HTTPException
 from litestar.di import Provide
 from litestar.status_codes import HTTP_400_BAD_REQUEST
 from services.exchanges import ExchangesService
 from config import get_config, Config
 from models.currency import ExchangeRates
-from typing import Optional
+from typing import Optional, Dict
 from datetime import date
 
 
@@ -97,6 +97,7 @@ async def get_database_stats(exchanges_service: ExchangesService) -> Dict:
 
 exchanges_router = Router(
     path="/api/currency",
-    route_handlers=[get_rates, get_historical_rates],
+    route_handlers=[get_rates, get_historical_rates, update_rates, preload_historical_data, get_available_currencies, get_database_stats],
     dependencies={"exchanges_service": Provide(get_exchanges_service)},
 )
+
