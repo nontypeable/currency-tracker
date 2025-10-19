@@ -260,15 +260,15 @@ class ExchangesService:
             except redis.RedisError:
                 pass
 
-            if date is not None:
-                db_rate = self.repository.get_rate_by_date(char_code, "RUB", date)
-                if db_rate:
-                    if self.redis_client:
-                        try:
-                            self.redis_client.setex(cache_key, 3600, str(db_rate.rate))
-                        except redis.RedisError:
-                            pass
-                    return db_rate.rate
+        if date is not None:
+            db_rate = self.repository.get_rate_by_date(char_code, "RUB", date)
+            if db_rate:
+                if self.redis_client:
+                    try:
+                        self.redis_client.setex(cache_key, 3600, str(db_rate.rate))
+                    except redis.RedisError:
+                        pass
+                return db_rate.rate
 
         async with httpx.AsyncClient() as client:
             response = await self._make_request(client, date)
