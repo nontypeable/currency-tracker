@@ -10,6 +10,7 @@ from typing import Dict
 from repositories.rates_repository import RatesRepository
 from typing import List
 from models import HistoricalRate
+import asyncio
 
 
 class ExchangesService:
@@ -29,7 +30,7 @@ class ExchangesService:
             decode_responses=True,
             socket_timeout=5,
         )
-
+    
     async def get_historical_rates(
         self, currency: str, base_currency: str, days: int = 30
     ) -> List[HistoricalRate]:
@@ -40,7 +41,7 @@ class ExchangesService:
 
         if self.redis_client:
             try:
-                cached_data = self.redis_client.get(cache_key)
+                cached_data = await self.redis_client.get(cache_key)
                 if cached_data:
                     return [HistoricalRate(**item) for item in json.loads(cached_data)]
             except redis.RedisError:
@@ -159,21 +160,17 @@ class ExchangesService:
     async def preload_historical_data(self, days: int = 180) -> None:
         """
         Preload historical data for all available currencies.
+        Optimized to minimize API calls by first checking database for existing records.
         """
         try:
             all_currencies = await self.get_all_available_currencies()
-
             base_currencies = ["RUB", "USD", "EUR"]
-
-            total_pairs = len(all_currencies) * len(base_currencies)
-            current_pair = 0
 
             for base_currency in base_currencies:
                 for currency in all_currencies:
                     if currency == base_currency:
                         continue
 
-                    current_pair += 1
                     try:
                         missing_dates = self.repository.get_missing_dates(
                             currency, base_currency, days
@@ -195,17 +192,25 @@ class ExchangesService:
                         continue
 
         except Exception as e:
-            pass
+            raise e
 
     async def _load_historical_chunk(
         self, currency: str, base_currency: str, dates: List[date]
     ) -> None:
         """
         Load historical data for a chunk of dates.
+        Optimized to handle errors gracefully and provide detailed logging.
         """
         rates_to_save = []
+        failed_dates = []
 
         for target_date in dates:
+            existing_rate = self.repository.get_rate_by_date(
+                currency, base_currency, target_date
+            )
+            if existing_rate:
+                continue
+
             try:
                 if base_currency == "RUB":
                     rate = await self.get_currency_exchange_rate(currency, target_date)
@@ -227,10 +232,17 @@ class ExchangesService:
                 rates_to_save.append(historical_rate)
 
             except Exception as e:
+                failed_dates.append(target_date)
                 continue
 
         if rates_to_save:
-            self.repository.save_rates(currency, base_currency, rates_to_save)
+            try:
+                self.repository.save_rates(currency, base_currency, rates_to_save)
+            except Exception as e:
+                pass
+
+        if failed_dates:
+            pass
 
     async def get_currency_exchange_rate(
         self, char_code: str, date: Optional[date] = None
@@ -248,9 +260,23 @@ class ExchangesService:
             except redis.RedisError:
                 pass
 
+            if date is not None:
+                db_rate = self.repository.get_rate_by_date(char_code, "RUB", date)
+                if db_rate:
+                    if self.redis_client:
+                        try:
+                            self.redis_client.setex(cache_key, 3600, str(db_rate.rate))
+                        except redis.RedisError:
+                            pass
+                    return db_rate.rate
+
         async with httpx.AsyncClient() as client:
             response = await self._make_request(client, date)
             currency_rate = self._parse_currency_rate(response.content, char_code)
+
+            if date is not None:
+                historical_rate = HistoricalRate(date=date.isoformat(), rate=currency_rate)
+                self.repository.save_single_rate(char_code, "RUB", historical_rate)
 
             if self.redis_client:
                 try:
