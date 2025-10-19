@@ -30,7 +30,7 @@ class ExchangesService:
             decode_responses=True,
             socket_timeout=5,
         )
-    
+
     async def get_historical_rates(
         self, currency: str, base_currency: str, days: int = 30
     ) -> List[HistoricalRate]:
@@ -275,7 +275,9 @@ class ExchangesService:
             currency_rate = self._parse_currency_rate(response.content, char_code)
 
             if date is not None:
-                historical_rate = HistoricalRate(date=date.isoformat(), rate=currency_rate)
+                historical_rate = HistoricalRate(
+                    date=date.isoformat(), rate=currency_rate
+                )
                 self.repository.save_single_rate(char_code, "RUB", historical_rate)
 
             if self.redis_client:
