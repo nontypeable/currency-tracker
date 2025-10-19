@@ -63,7 +63,7 @@ async def update_rates(exchanges_service: ExchangesService) -> Dict[str, str]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-    
+
 @post("/preload-data/{days:int}")
 async def preload_historical_data(
     exchanges_service: ExchangesService,
@@ -76,6 +76,18 @@ async def preload_historical_data(
             "status": "success",
             "message": f"Preloaded {days} days of historical data",
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@get("/currencies")
+async def get_available_currencies(
+    exchanges_service: ExchangesService,
+) -> Dict[str, list]:
+    """Get list of all available currencies"""
+    try:
+        currencies = await exchanges_service.get_all_available_currencies()
+        return {"currencies": currencies}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
