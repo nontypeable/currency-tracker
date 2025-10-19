@@ -35,3 +35,18 @@ exchanges_router = Router(
     route_handlers=[get_rates],
     dependencies={"exchanges_service": Provide(get_exchanges_service)},
 )
+@get("/historical/{currency:str}/{base_currency:str}/{days:int}")
+async def get_historical_rates(
+    exchanges_service: ExchangesService,
+    currency: str,
+    base_currency: str,
+    days: int = 30,
+) -> list:
+    """Get historical exchange rates"""
+    try:
+        rates = await exchanges_service.get_historical_rates(
+            currency, base_currency, days
+        )
+        return [{"date": r.date, "rate": r.rate} for r in rates]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

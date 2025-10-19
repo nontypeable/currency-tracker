@@ -41,7 +41,7 @@ class ExchangesService:
 
         if self.redis_client:
             try:
-                cached_data = self.redis_client.get(cache_key)
+                cached_data = await self.redis_client.get(cache_key)
                 if cached_data:
                     return [HistoricalRate(**item) for item in json.loads(cached_data)]
             except redis.RedisError:
@@ -60,7 +60,7 @@ class ExchangesService:
                     )
                 except redis.RedisError:
                     pass
-            return db_rates 
+            return db_rates
 
         missing_dates = self.repository.get_missing_dates(currency, base_currency, days)
         rates_to_save = []
@@ -108,7 +108,7 @@ class ExchangesService:
             return final_rates
 
         return []
-    
+
     async def update_daily_rates(self) -> None:
         """
         Update database with today's rates for all available currencies.
@@ -156,7 +156,7 @@ class ExchangesService:
                 "KRW",
                 "RUB",
             ]
-    
+
     async def preload_historical_data(self, days: int = 180) -> None:
         """
         Preload historical data for all available currencies.
