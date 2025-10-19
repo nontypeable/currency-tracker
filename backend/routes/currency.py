@@ -1,11 +1,11 @@
-from litestar import Router, get
+from litestar import Router, get, post
 from litestar.exceptions import HTTPException
 from litestar.di import Provide
 from litestar.status_codes import HTTP_400_BAD_REQUEST
 from services.exchanges import ExchangesService
 from config import get_config, Config
 from models.currency import ExchangeRates
-from typing import Optional
+from typing import Optional, Dict
 from datetime import date
 
 
@@ -55,7 +55,7 @@ async def update_rates(exchanges_service: ExchangesService) -> Dict[str, str]:
         return {"status": "success", "message": "Rates updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @post("/preload-data/{days:int}")
 async def preload_historical_data(
@@ -71,7 +71,7 @@ async def preload_historical_data(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @get("/currencies")
 async def get_available_currencies(
@@ -85,18 +85,14 @@ async def get_available_currencies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@get("/stats")
-async def get_database_stats(exchanges_service: ExchangesService) -> Dict:
-    """Get database statistics"""
-    try:
-        stats = exchanges_service.repository.get_data_statistics()
-        return {"stats": stats}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 exchanges_router = Router(
     path="/api/currency",
-    route_handlers=[get_rates, get_historical_rates],
+    route_handlers=[
+        get_rates,
+        get_historical_rates,
+        update_rates,
+        preload_historical_data,
+        get_available_currencies,
+    ],
     dependencies={"exchanges_service": Provide(get_exchanges_service)},
 )
