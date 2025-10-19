@@ -62,3 +62,20 @@ async def update_rates(exchanges_service: ExchangesService) -> Dict[str, str]:
         return {"status": "success", "message": "Rates updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@post("/preload-data/{days:int}")
+async def preload_historical_data(
+    exchanges_service: ExchangesService,
+    days: int = 180,
+) -> Dict[str, str]:
+    """Manually trigger historical data preload"""
+    try:
+        await exchanges_service.preload_historical_data(days=days)
+        return {
+            "status": "success",
+            "message": f"Preloaded {days} days of historical data",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
