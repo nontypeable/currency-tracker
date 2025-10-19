@@ -30,11 +30,6 @@ async def get_rates(
         raise HTTPException(detail="Internal server error", status_code=500)
 
 
-exchanges_router = Router(
-    path="/api/currency",
-    route_handlers=[get_rates],
-    dependencies={"exchanges_service": Provide(get_exchanges_service)},
-)
 @get("/historical/{currency:str}/{base_currency:str}/{days:int}")
 async def get_historical_rates(
     exchanges_service: ExchangesService,
@@ -50,3 +45,10 @@ async def get_historical_rates(
         return [{"date": r.date, "rate": r.rate} for r in rates]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+exchanges_router = Router(
+    path="/api/currency",
+    route_handlers=[get_rates, get_historical_rates],
+    dependencies={"exchanges_service": Provide(get_exchanges_service)},
+)
