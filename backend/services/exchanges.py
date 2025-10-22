@@ -1,7 +1,7 @@
 import httpx
 from xml.etree import ElementTree as ET
 from typing import Optional, Dict
-from datetime import date
+from datetime import date, timedelta
 from models.currency import ExchangeRates
 import redis
 from config import Config
@@ -62,8 +62,15 @@ class ExchangesService:
                     pass
             return db_rates
 
-        missing_dates = self.repository.get_missing_dates(currency, base_currency, days)
+        start_date = date.today() - timedelta(days=days - 1)
+        end_date = date.today()
+        missing_dates = self.repository.get_missing_dates_for_range(
+            currency, base_currency, start_date, end_date
+        )
         rates_to_save = []
+
+        if missing_dates:
+            pass
 
         for missing_date in missing_dates:
             try:
@@ -164,16 +171,17 @@ class ExchangesService:
         """
         try:
             all_currencies = await self.get_all_available_currencies()
-            base_currencies = ["RUB", "USD", "EUR"]
 
-            for base_currency in base_currencies:
+            for base_currency in ["RUB", "USD", "EUR"]:
                 for currency in all_currencies:
                     if currency == base_currency:
                         continue
 
                     try:
-                        missing_dates = self.repository.get_missing_dates(
-                            currency, base_currency, days
+                        start_date = date.today() - timedelta(days=days - 1)
+                        end_date = date.today()
+                        missing_dates = self.repository.get_missing_dates_for_range(
+                            currency, base_currency, start_date, end_date
                         )
 
                         if not missing_dates:
