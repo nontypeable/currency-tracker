@@ -29,6 +29,7 @@ async def get_rates(
     except Exception as e:
         raise HTTPException(detail="Internal server error", status_code=500)
 
+
 @get("/historical/{currency:str}/{base_currency:str}/{days:int}")
 async def get_historical_rates(
     exchanges_service: ExchangesService,
