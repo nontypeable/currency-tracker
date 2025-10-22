@@ -11,6 +11,7 @@ from repositories.rates_repository import RatesRepository
 from typing import List
 from models import HistoricalRate
 import asyncio
+import logging
 
 
 class ExchangesService:
@@ -21,6 +22,9 @@ class ExchangesService:
         self.config = config
         self.redis_client = redis_client or self._create_redis_client()
         self.repository = RatesRepository()
+
+        # Disable httpx info logging
+        logging.getLogger("httpx").setLevel(logging.WARNING)
 
     def _create_redis_client(self) -> redis.Redis:
         return redis.Redis(
