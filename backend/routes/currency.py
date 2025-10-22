@@ -5,7 +5,7 @@ from litestar.status_codes import HTTP_400_BAD_REQUEST
 from services.exchanges import ExchangesService
 from config import get_config, Config
 from models.currency import ExchangeRates
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Union
 from datetime import date
 
 
@@ -29,14 +29,13 @@ async def get_rates(
     except Exception as e:
         raise HTTPException(detail="Internal server error", status_code=500)
 
-
 @get("/historical/{currency:str}/{base_currency:str}/{days:int}")
 async def get_historical_rates(
     exchanges_service: ExchangesService,
     currency: str,
     base_currency: str,
     days: int = 30,
-) -> list:
+) -> List[Dict[str, Union[str, float]]]:  # Исправлено здесь
     """Get historical exchange rates"""
     try:
         rates = await exchanges_service.get_historical_rates(
@@ -76,7 +75,7 @@ async def preload_historical_data(
 @get("/currencies")
 async def get_available_currencies(
     exchanges_service: ExchangesService,
-) -> Dict[str, list]:
+) -> Dict[str, List[str]]:
     """Get list of all available currencies"""
     try:
         currencies = await exchanges_service.get_all_available_currencies()
