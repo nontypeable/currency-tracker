@@ -68,6 +68,7 @@ class ExchangesService:
             currency, base_currency, start_date, end_date
         )
         rates_to_save = []
+        consecutive_failures = 0
 
         if missing_dates:
             pass
@@ -92,8 +93,13 @@ class ExchangesService:
                     )
 
                 rates_to_save.append(historical_rate)
+                consecutive_failures = 0
 
             except Exception as e:
+                consecutive_failures += 1
+                if consecutive_failures >= 3:
+                    await asyncio.sleep(5 * 60)
+                    consecutive_failures = 0
                 continue
 
         if rates_to_save:
@@ -211,12 +217,14 @@ class ExchangesService:
         """
         rates_to_save = []
         failed_dates = []
+        consecutive_failures = 0
 
         for target_date in dates:
             existing_rate = self.repository.get_rate_by_date(
                 currency, base_currency, target_date
             )
             if existing_rate:
+                consecutive_failures = 0
                 continue
 
             try:
@@ -238,9 +246,14 @@ class ExchangesService:
                     )
 
                 rates_to_save.append(historical_rate)
+                consecutive_failures = 0
 
             except Exception as e:
+                consecutive_failures += 1
                 failed_dates.append(target_date)
+                if consecutive_failures >= 3:
+                    await asyncio.sleep(5 * 60)
+                    consecutive_failures = 0
                 continue
 
         if rates_to_save:
