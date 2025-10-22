@@ -149,3 +149,32 @@ class RatesRepository:
             existing_dates = [date.fromisoformat(row[0]) for row in cursor.fetchall()]
 
         return [d for d in all_dates if d not in existing_dates]
+
+    def get_missing_dates_for_range(
+        self, currency: str, base_currency: str, start_date: date, end_date: date
+    ) -> List[date]:
+        """
+        Returns list of dates for which we don't have data in the specified date range.
+        """
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            current_date += timedelta(days=1)
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT DISTINCT date FROM historical_rates
+                WHERE currency = ? AND base_currency = ? AND date >= ? AND date <= ?
+                """,
+                (
+                    currency.upper(),
+                    base_currency.upper(),
+                    start_date.isoformat(),
+                    end_date.isoformat(),
+                ),
+            )
+            existing_dates = [date.fromisoformat(row[0]) for row in cursor.fetchall()]
+
+        return [d for d in all_dates if d not in existing_dates]
