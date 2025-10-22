@@ -12,6 +12,7 @@ from typing import List
 from models import HistoricalRate
 import asyncio
 import logging
+from loguru import logger
 
 
 class ExchangesService:
@@ -71,6 +72,9 @@ class ExchangesService:
         missing_dates = self.repository.get_missing_dates_for_range(
             currency, base_currency, start_date, end_date
         )
+        logger.info(
+            f"Found {len(missing_dates)} missing rates for {currency}/{base_currency} in the last {days} days"
+        )
         rates_to_save = []
         consecutive_failures = 0
 
@@ -78,6 +82,9 @@ class ExchangesService:
             pass
 
         for missing_date in missing_dates:
+            logger.info(
+                f"Loading historical rate for {currency}/{base_currency} on {missing_date}"
+            )
             try:
                 if base_currency == "RUB":
                     rate = await self.get_currency_exchange_rate(currency, missing_date)
@@ -98,16 +105,27 @@ class ExchangesService:
 
                 rates_to_save.append(historical_rate)
                 consecutive_failures = 0
+                logger.info(
+                    f"Successfully loaded rate for {currency}/{base_currency} on {missing_date}: {historical_rate.rate}"
+                )
 
             except Exception as e:
                 consecutive_failures += 1
+                logger.error(
+                    f"Failed to fetch rate for {missing_date} in pair {currency}/{base_currency}: {e}"
+                )
                 if consecutive_failures >= 3:
                     await asyncio.sleep(5 * 60)
                     consecutive_failures = 0
                 continue
 
         if rates_to_save:
-            self.repository.save_rates(currency, base_currency, rates_to_save)
+            try:
+                self.repository.save_rates(currency, base_currency, rates_to_save)
+            except Exception as e:
+                logger.error(
+                    f"Failed to save rates for {currency}/{base_currency}: {e}"
+                )
 
         final_rates = self.repository.get_rates(currency, base_currency, days)
         if final_rates:
@@ -140,7 +158,7 @@ class ExchangesService:
                     self.repository.save_single_rate(currency, "RUB", historical_rate)
 
         except Exception as e:
-            pass
+            logger.error(f"Failed to update daily rates: {e}")
 
     async def get_all_available_currencies(self) -> List[str]:
         """
@@ -161,6 +179,9 @@ class ExchangesService:
                 currencies.append("RUB")
                 return sorted(list(set(currencies)))
         except Exception as e:
+            logger.warning(
+                f"Failed to fetch available currencies from CBR API: {e}. Using fallback list."
+            )
             return [
                 "USD",
                 "EUR",
@@ -197,6 +218,9 @@ class ExchangesService:
                         if not missing_dates:
                             continue
 
+                        logger.info(
+                            f"Preloading {len(missing_dates)} missing rates for {currency}/{base_currency}"
+                        )
                         chunk_size = 10
                         for i in range(0, len(missing_dates), chunk_size):
                             chunk = missing_dates[i : i + chunk_size]
@@ -207,6 +231,9 @@ class ExchangesService:
                             await asyncio.sleep(0.5)
 
                     except Exception as e:
+                        logger.error(
+                            f"Failed to preload data for {currency}/{base_currency}: {e}"
+                        )
                         continue
 
         except Exception as e:
@@ -231,6 +258,9 @@ class ExchangesService:
                 consecutive_failures = 0
                 continue
 
+            logger.info(
+                f"Loading historical rate for {currency}/{base_currency} on {target_date}"
+            )
             try:
                 if base_currency == "RUB":
                     rate = await self.get_currency_exchange_rate(currency, target_date)
@@ -251,10 +281,16 @@ class ExchangesService:
 
                 rates_to_save.append(historical_rate)
                 consecutive_failures = 0
+                logger.info(
+                    f"Successfully loaded rate for {currency}/{base_currency} on {target_date}: {historical_rate.rate}"
+                )
 
             except Exception as e:
                 consecutive_failures += 1
                 failed_dates.append(target_date)
+                logger.error(
+                    f"Failed to load rate for {target_date} in pair {currency}/{base_currency}: {e}"
+                )
                 if consecutive_failures >= 3:
                     await asyncio.sleep(5 * 60)
                     consecutive_failures = 0
@@ -264,7 +300,9 @@ class ExchangesService:
             try:
                 self.repository.save_rates(currency, base_currency, rates_to_save)
             except Exception as e:
-                pass
+                logger.error(
+                    f"Failed to save rates for {currency}/{base_currency}: {e}"
+                )
 
         if failed_dates:
             pass
